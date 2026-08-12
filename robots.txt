@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /readme
+Disallow: /wiki
+Disallow: /docs
+Disallow: /issues
+Disallow: /pull

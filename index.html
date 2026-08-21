@@ -1094,11 +1094,12 @@ async function submitOrder() {
   const total   = cart.reduce((s, i) => s + i.price, 0);
   const totalDp = cart.reduce((s, i) => s + dp(i.price), 0);
   
-  // Format items as HTML table rows for professional email
+  // Format items as clean plain-text lines (EmailJS escapes HTML in variables,
+  // so raw <tr>/<td> tags would show up as visible text in the customer's inbox).
   const itemsList = cart.map(i => {
     const itemDp = dp(i.price);
-    return `<tr><td class="item-model">${i.model}<br><span class="item-storage">${i.storage}</span></td><td class="price-col">ZMK ${i.price.toLocaleString('en-US',{minimumFractionDigits:2})}</td><td class="deposit-col">ZMK ${itemDp.toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
-  }).join('');
+    return `${i.model} (${i.storage})  —  ZMK ${i.price.toLocaleString('en-US',{minimumFractionDigits:2})}  (Deposit: ZMK ${itemDp.toLocaleString('en-US',{minimumFractionDigits:2})})`;
+  }).join('\n');
   const orderRef = 'SKM-' + Date.now().toString().slice(-6);
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;

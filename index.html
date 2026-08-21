@@ -690,8 +690,8 @@ footer strong { color: rgba(255,255,255,0.8); }
 
 <script>
 const EMAILJS_SERVICE_ID    = 'service_nkja7dk';
-const EMAILJS_TEMPLATE_ID   = 'template_aaakuo4';   // → sends email to YOU (store notification)
-const EMAILJS_AUTOREPLY_ID  = 'template_femx4wj'; // → sends confirmation to CUSTOMER
+const EMAILJS_TEMPLATE_ID   = 'template_aaakuo4';   // → sends email to YOU (store notification - "Contact Us")
+const EMAILJS_AUTOREPLY_ID  = 'template_ssvyn6f'; // → sends confirmation to CUSTOMER ("Auto-Reply")
 const EMAILJS_PUBLIC_KEY    = 'le55ZmEoRvodXKpHd';
 const STORE_EMAIL = 'lucksonsamu10@gmail.com';
 try { emailjs.init(EMAILJS_PUBLIC_KEY); } catch (e) { console.warn('EmailJS failed to load; ordering will show an error if attempted.', e); }
@@ -1093,11 +1093,38 @@ async function submitOrder() {
   if (!agreed) { showToast('Please agree to the Terms & Conditions to place your order', 'error'); return; }
   const total   = cart.reduce((s, i) => s + i.price, 0);
   const totalDp = cart.reduce((s, i) => s + dp(i.price), 0);
-  const itemsList = cart.map(i => `• ${i.model} (${i.storage}) — ZMK ${i.price.toLocaleString('en-US',{minimumFractionDigits:2})} | Deposit: ZMK ${dp(i.price).toLocaleString('en-US',{minimumFractionDigits:2})}`).join('\n');
+  
+  // Format items as HTML table rows for professional email
+  const itemsList = cart.map(i => {
+    const itemDp = dp(i.price);
+    return `<tr><td class="item-model">${i.model}<br><span class="item-storage">${i.storage}</span></td><td class="price-col">ZMK ${i.price.toLocaleString('en-US',{minimumFractionDigits:2})}</td><td class="deposit-col">ZMK ${itemDp.toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
+  }).join('');
   const orderRef = 'SKM-' + Date.now().toString().slice(-6);
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Sending...`;
+  
+  // Create email as fallback
+  const emailSubject = `SK Mobile Order ${orderRef} from ${name}`;
+  const emailBody = `
+📱 NEW ORDER - ${orderRef}
+
+👤 Customer: ${name}
+📞 Phone: ${phone}
+📧 Email: ${email}
+📍 Location: ${location || 'Not specified'}
+📝 Notes: ${notes || 'None'}
+
+📦 Items:
+${itemsList}
+
+💰 Total Price: ${fmt(total)}
+💵 Deposit Due: ${fmt(totalDp)}
+
+✅ Terms Agreed: Yes
+📅 Date: ${new Date().toLocaleString('en-GB', { dateStyle:'full', timeStyle:'short' })}
+`.trim();
+  const fallbackEmailLink = `mailto:${STORE_EMAIL}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
   try {
     const orderData = {
       to_email: STORE_EMAIL, reply_to: email, order_ref: orderRef,
@@ -1124,8 +1151,25 @@ async function submitOrder() {
       b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Order Now`;
     });
   } catch(err) {
-    console.error(err);
-    showToast('Failed to send. Call +260 771 156 710', 'error');
+    console.error('📧 EmailJS Error:', err);
+    const errMsg = err?.text || err?.message || 'Unknown error';
+    console.error('Error details:', errMsg);
+    
+    // Show error and offer fallback
+    showToast('⚠️ Auto-send failed. Click "Email Manually" to send via your email client.', 'error');
+    
+    // Create fallback email button
+    const fallbackBtn = document.createElement('button');
+    fallbackBtn.textContent = '📧 Email Manually';
+    fallbackBtn.style.cssText = 'position:fixed;bottom:100px;right:20px;padding:12px 18px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;z-index:1000;';
+    fallbackBtn.onclick = () => {
+      window.location.href = fallbackEmailLink;
+      fallbackBtn.remove();
+    };
+    document.body.appendChild(fallbackBtn);
+    
+    // Auto-remove after 10 seconds
+    setTimeout(() => fallbackBtn.remove?.(), 10000);
   } finally {
     btn.disabled = !document.getElementById('agreeTerms').checked;
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Place Order`;
